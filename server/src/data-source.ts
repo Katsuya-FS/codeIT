@@ -18,6 +18,7 @@ import { StarterCurriculum1794962000000 } from './migrations/1794962000000-Start
 import { SampleLearningAndChallenges1794963000000 } from './migrations/1794963000000-SampleLearningAndChallenges';
 import { HiddenChallengeCases1794964000000 } from './migrations/1794964000000-HiddenChallengeCases';
 import { StudentPointsAndChallengeProgress1794965000000 } from './migrations/1794965000000-StudentPointsAndChallengeProgress';
+import { Classrooms1794966000000 } from './migrations/1794966000000-Classrooms';
 import { validateEnvironment } from './config/environment';
 
 const env = validateEnvironment(process.env);
@@ -25,6 +26,6 @@ export default new DataSource({
   type: 'mysql', host: String(env.DB_HOST), port: Number(env.DB_PORT), username: String(env.DB_USERNAME),
   password: String(env.DB_PASSWORD), database: String(env.DB_DATABASE),
   entities: [Role, UserAccount, StudentProfile, TeacherProfile, RoleChangeRequest, RefreshSession, CourseModule, Lesson, LessonVersion, LessonCompletion],
-  migrations: [InitialIdentity1763400000000, TeacherApproval1794960000000, Curriculum1794961000000, StarterCurriculum1794962000000, SampleLearningAndChallenges1794963000000, HiddenChallengeCases1794964000000, StudentPointsAndChallengeProgress1794965000000], synchronize: false, migrationsRun: false,
+  migrations: [InitialIdentity1763400000000, TeacherApproval1794960000000, Curriculum1794961000000, StarterCurriculum1794962000000, SampleLearningAndChallenges1794963000000, HiddenChallengeCases1794964000000, StudentPointsAndChallengeProgress1794965000000, Classrooms1794966000000], synchronize: false, migrationsRun: false,
   charset: 'utf8mb4', timezone: 'Z',
 });

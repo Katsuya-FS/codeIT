@@ -17,6 +17,7 @@ import { LessonCompletion } from './learning/entities/lesson-completion.entity';
 import { AuthModule } from './identity/auth.module';
 import { HealthController } from './health.controller';
 import { LearningModule } from './learning/learning.module';
+import { ClassroomsModule } from './classrooms/classrooms.module';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { LearningModule } from './learning/learning.module';
     }),
     AuthModule,
     LearningModule,
+    ClassroomsModule,
   ],
   controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -4,7 +4,7 @@ CodeIT is a Java fundamentals learning platform. The approved architecture and d
 
 ## Project status
 
-The initial project foundation includes React/Vite client, NestJS API, MySQL/TypeORM, Student registration/login, rotating refresh sessions, Teacher role requests, Administrator review/account controls, versioned curriculum, lesson completion tracking, and five coding challenges. Each first completed lesson and challenge awards 5 points, recorded in an idempotent points ledger. A separate local interpreter process evaluates a bounded Java learning subset for these challenges. It does not invoke `javac`, execute arbitrary Java bytecode, or provide every Java library feature. Quizzes, classrooms, badges, and reporting remain future work.
+The project includes React/Vite client, NestJS API, MySQL/TypeORM, Student registration/login, rotating refresh sessions, Teacher role requests, Administrator review/account controls, versioned curriculum, lesson completion tracking, five coding challenges, and classroom management. Teachers can create classrooms, approve/reject student join requests, and assign published challenges. Students join with a classroom code and can view current classes and assignments. Each first completed lesson and challenge awards 5 points in an idempotent ledger. A separate local interpreter process evaluates a bounded Java learning subset; it does not invoke `javac` or run arbitrary Java bytecode. Quiz authoring/assignments, badges, and reporting remain future work.
 
 The curriculum migrations seed six sample Java Foundations lessons, five challenge statements, public examples, and server-side hidden test data so a new database has published learning content.
 
@@ -25,7 +25,7 @@ After migrations, create local-only Student, Teacher, and Administrator demo acc
 
 The client is served at `http://localhost:5173`; the versioned API is at `http://localhost:3000/api/v1`. Health check: `GET /api/v1/health`.
 
-Implemented API slices include `POST /auth/register|login|refresh|logout`, `GET /me`, Student `POST /role-requests`, Administrator `GET /admin/role-requests` and approve/reject routes, Administrator account list/detail/status routes, learner lesson catalog/detail/completion/progress, and authenticated challenge catalog/submission routes. Administrator curriculum routes create/publish modules, lessons, and lesson versions. Challenge submissions are sent to the localhost-only interpreter process, which checks custom input and server-side sample/hidden cases and returns the program output plus aggregate results. The interpreter accepts only a small set of Java syntax used by the included exercises; unsupported syntax appears as a clear compile/interpreter message.
+Implemented API slices include `POST /auth/register|login|refresh|logout`, `GET /me`, Student `POST /role-requests`, Administrator role/account management, learner lesson catalog/detail/completion/progress, authenticated challenge catalog/submission, and teacher/student classroom routes for creation, join approval, membership, and published-challenge assignments. Administrator curriculum routes create/publish modules, lessons, and lesson versions. Challenge submissions are sent to the localhost-only interpreter, which checks custom input and server-side sample/hidden cases and returns program output plus aggregate results. It accepts a small Java syntax subset used by the included exercises; unsupported syntax appears as an interpreter message.
 
 ### Initial administrator
 
