@@ -1,0 +1,29 @@
+{
+  "name": "@codeit/server",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start:dev": "nest start --watch",
+    "start:runner": "node runner/main.mjs",
+    "start:runner:dev": "node --watch runner/main.mjs",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "migration:run": "typeorm migration:run -d dist/data-source.js",
+    "migration:revert": "typeorm migration:revert -d dist/data-source.js",
+    "bootstrap:admin": "node -r ts-node/register src/bootstrap-admin.ts",
+    "seed:demo": "node -r ts-node/register src/seed-demo-accounts.ts",
+    "lint": "eslint \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6", "@nestjs/config": "^4.0.2", "@nestjs/core": "^11.1.6",
+    "@nestjs/jwt": "^11.0.0", "@nestjs/platform-express": "^11.1.6", "@nestjs/throttler": "^6.4.0", "@nestjs/typeorm": "^11.0.0",
+    "argon2": "^0.44.0", "class-transformer": "^0.5.1", "class-validator": "^0.14.2",
+    "cookie-parser": "^1.4.7", "dotenv": "^16.6.1", "mysql2": "^3.15.1", "reflect-metadata": "^0.2.2", "rxjs": "^7.8.2", "typeorm": "^0.3.27"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0", "@nestjs/cli": "^11.0.10", "@nestjs/schematics": "^11.0.7",
+    "@nestjs/testing": "^11.1.6", "@types/cookie-parser": "^1.4.9", "@types/express": "^5.0.3",
+    "@types/node": "^24.5.2", "eslint": "^9.36.0", "globals": "^16.4.0", "source-map-support": "^0.5.21",
+    "ts-node": "^10.9.2", "tsconfig-paths": "^4.2.0", "typescript": "~5.9.2", "typescript-eslint": "^8.44.1"
+  }
+}

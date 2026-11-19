@@ -1,0 +1,32 @@
+{
+  "name": "codeit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CodeIT Java learning platform",
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\" \"npm:dev:runner\"",
+    "dev:client": "npm --workspace client run dev",
+    "dev:server": "npm --workspace server run start:dev",
+    "dev:runner": "npm --workspace server run start:runner:dev",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "db:migrate": "npm --workspace server run migration:run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "concurrently": "^9.2.1",
+    "globals": "^16.4.0",
+    "typescript-eslint": "^8.44.1"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "allowScripts": {
+    "argon2@0.44.0": true,
+    "esbuild@0.28.2": true
+  }
+}
