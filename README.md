@@ -4,7 +4,7 @@ CodeIT is a Java fundamentals learning platform. The approved architecture and d
 
 ## Project status
 
-The project includes React/Vite client, NestJS API, MySQL/TypeORM, Student registration/login, rotating refresh sessions, Teacher role requests, Administrator review/account controls, versioned curriculum, lesson completion tracking, five coding challenges, and classroom management. Teachers can create classrooms, approve/reject student join requests, and assign published challenges. Students join with a classroom code and can view current classes and assignments. Each first completed lesson and challenge awards 5 points in an idempotent ledger. A separate local interpreter process evaluates a bounded Java learning subset; it does not invoke `javac` or run arbitrary Java bytecode. Quiz authoring/assignments, badges, and reporting remain future work.
+The project includes React/Vite client, NestJS API, MySQL/TypeORM, Student registration/login, rotating refresh sessions, Teacher role requests, Administrator review/account controls, versioned curriculum, lesson completion tracking, five coding challenges, and classroom management. Teachers can create classrooms, approve/reject student join requests, assign published challenges, and propose lessons as PDF uploads. Administrators can preview those PDFs, approve and publish them into the selected module, or reject them with feedback. Students join with a classroom code and can view current classes and assignments. Each first completed lesson and challenge awards 5 points in an idempotent ledger. A separate local interpreter process evaluates a bounded Java learning subset; it does not invoke `javac` or run arbitrary Java bytecode. Quiz authoring/assignments, badges, and reporting remain future work.
 
 The curriculum migrations seed six sample Java Foundations lessons, five challenge statements, public examples, and server-side hidden test data so a new database has published learning content.
 
@@ -15,7 +15,7 @@ The curriculum migrations seed six sample Java Foundations lessons, five challen
 
 ## Local setup
 
-1. Create a MySQL database and a least-privilege application user. Copy `server/.env.example` to `server/.env` and set database credentials, a random JWT secret, and a separate random `JAVA_RUNNER_TOKEN` (both at least 32 characters).
+1. Create a MySQL database and a least-privilege application user. Copy `server/.env.example` to `server/.env` and set database credentials, a random JWT secret, and a separate random `JAVA_RUNNER_TOKEN` (both at least 32 characters). `LESSON_UPLOAD_DIR` sets the private directory used for lesson PDFs; the default is `server/uploads/lesson-submissions`.
 2. Install dependencies from the repository root with `npm install`.
 3. Build the workspaces with `npm run build` so the API and migration CLI are available.
 4. Apply the reviewed migration with `npm run db:migrate`.
@@ -25,7 +25,7 @@ After migrations, create local-only Student, Teacher, and Administrator demo acc
 
 The client is served at `http://localhost:5173`; the versioned API is at `http://localhost:3000/api/v1`. Health check: `GET /api/v1/health`.
 
-Implemented API slices include `POST /auth/register|login|refresh|logout`, `GET /me`, Student `POST /role-requests`, Administrator role/account management, learner lesson catalog/detail/completion/progress, authenticated challenge catalog/submission, and teacher/student classroom routes for creation, join approval, membership, and published-challenge assignments. Administrator curriculum routes create/publish modules, lessons, and lesson versions. Challenge submissions are sent to the localhost-only interpreter, which checks custom input and server-side sample/hidden cases and returns program output plus aggregate results. It accepts a small Java syntax subset used by the included exercises; unsupported syntax appears as an interpreter message.
+Implemented API slices include `POST /auth/register|login|refresh|logout`, `GET /me`, Student `POST /role-requests`, Administrator role/account and curriculum management, learner lesson catalog/detail/completion/progress, authenticated challenge catalog/submission, teacher/student classroom routes, and teacher lesson proposal plus administrator review routes. Administrator curriculum routes create/publish modules, lessons, and lesson versions. Challenge submissions are sent to the localhost-only interpreter, which checks custom input and server-side sample/hidden cases and returns program output plus aggregate results. It accepts a small Java syntax subset used by the included exercises; unsupported syntax appears as an interpreter message.
 
 ### Initial administrator
 
@@ -38,4 +38,5 @@ After applying migrations, run `npm --workspace server run bootstrap:admin` once
 - Authentication requests are throttled to five per minute per client IP, with a global limit of 60 requests per minute per IP. The default throttler store is process-local; configure shared storage before running multiple API instances. Set `TRUST_PROXY_HOPS` only to the number of trusted reverse-proxy hops so client IP limits are accurate.
 - Email verification and self-service recovery are not implemented; email is not proof of identity for account recovery.
 - TypeORM schema synchronization is disabled. Database changes must be made through reviewed migrations.
+- Lesson PDFs are limited to 10 MiB, validated before storage, and served through authenticated routes. Back up `LESSON_UPLOAD_DIR` alongside the database; the stored PDFs are not tracked in Git.
 - The initial dependency audit reported 18 advisories (15 high, 3 moderate). The available automated fixes required major top-level version changes, so they were not forced; review and resolve these advisories before production deployment.

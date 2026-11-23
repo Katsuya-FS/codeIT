@@ -142,12 +142,17 @@ export class AuthService {
     });
   }
 
-  async listUsers(pageValue = '1', limitValue = '25') {
+  async listUsers(pageValue = '1', limitValue = '25', role = 'all', searchValue = '') {
     const { page, limit, skip } = this.pagination(pageValue, limitValue);
-    const [rows, total] = await this.users.findAndCount({
-      select: { id: true, email: true, displayName: true, roleName: true, status: true, createdAt: true },
-      order: { createdAt: 'DESC' }, skip, take: limit,
-    });
+    if (!['all', 'Student', 'Teacher', 'Administrator'].includes(role)) throw new BadRequestException('Invalid account role filter.');
+    if (searchValue.length > 120) throw new BadRequestException('Account search must be 120 characters or fewer.');
+    const search = searchValue.trim();
+    const query = this.users.createQueryBuilder('user')
+      .select(['user.id', 'user.email', 'user.displayName', 'user.roleName', 'user.status', 'user.createdAt'])
+      .orderBy('user.createdAt', 'DESC').skip(skip).take(limit);
+    if (role !== 'all') query.andWhere('user.roleName = :role', { role });
+    if (search) query.andWhere('(LOWER(user.displayName) LIKE LOWER(:search) OR LOWER(user.email) LIKE LOWER(:search))', { search: `%${search}%` });
+    const [rows, total] = await query.getManyAndCount();
     return { data: rows, page, limit, total };
   }
 
@@ -156,6 +161,36 @@ export class AuthService {
       where: { id }, select: { id: true, email: true, displayName: true, roleName: true, status: true, createdAt: true, updatedAt: true },
     });
     return user ?? null;
+  }
+
+  async setUserRole(id: string, roleName: 'Student' | 'Teacher', admin: UserAccount) {
+    return this.dataSource.transaction(async (manager) => {
+      const accounts = manager.getRepository(UserAccount);
+      const user = await accounts.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!user) throw new NotFoundException('Account not found.');
+      if (user.roleName === 'Administrator') throw new BadRequestException('Administrator accounts cannot be changed here.');
+      if (user.roleName === roleName) return { id: user.id, roleName: user.roleName };
+
+      if (roleName === 'Teacher') {
+        const existing = await manager.getRepository(TeacherProfile).findOneBy({ userId: user.id });
+        if (existing) {
+          existing.approvedByUserId = admin.id;
+          existing.approvedAt = new Date();
+          await manager.getRepository(TeacherProfile).save(existing);
+        } else {
+          await manager.getRepository(TeacherProfile).save({ userId: user.id, approvedByUserId: admin.id, approvedAt: new Date() });
+        }
+      } else {
+        const studentProfile = await manager.getRepository(StudentProfile).findOneBy({ userId: user.id });
+        if (!studentProfile) await manager.getRepository(StudentProfile).save({ userId: user.id });
+      }
+
+      user.roleName = roleName;
+      await accounts.save(user);
+      await manager.getRepository(RoleChangeRequest).createQueryBuilder().update().set({ status: 'rejected', reviewingAdminUserId: admin.id, decidedAt: new Date() })
+        .where('student_user_id = :userId AND status = :pending', { userId: user.id, pending: 'pending' }).execute();
+      return { id: user.id, roleName: user.roleName };
+    });
   }
 
   async setUserStatus(id: string, status: 'active' | 'inactive', admin: UserAccount) {

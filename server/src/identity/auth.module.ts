@@ -8,16 +8,17 @@ import { UserAccount } from './entities/user-account.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AccessGuard } from './access.guard';
-import { MeController } from './me.controller';
+import { MeController, PublicProfilesController } from './me.controller';
 import { RoleRequestsController } from './role-requests.controller';
 import { AccountsController } from './accounts.controller';
 import { RoleChangeRequest } from './entities/role-change-request.entity';
 import { TeacherProfile } from './entities/teacher-profile.entity';
 import { RolesGuard } from './roles.guard';
+import { AdminDashboardController } from './admin-dashboard.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([UserAccount, StudentProfile, TeacherProfile, RoleChangeRequest, Role, RefreshSession]), JwtModule.register({})],
-  controllers: [AuthController, MeController, RoleRequestsController, AccountsController],
+  controllers: [AuthController, MeController, PublicProfilesController, RoleRequestsController, AccountsController, AdminDashboardController],
   providers: [AuthService, AccessGuard, RolesGuard],
   exports: [AuthService, AccessGuard, RolesGuard],
 })

@@ -10,10 +10,12 @@ import { LearningService } from './learning.service';
 import { LessonsController } from './lessons.controller';
 import { CurriculumAdminController } from './curriculum-admin.controller';
 import { ChallengesController } from './challenges.controller';
+import { AdminLessonSubmissionsController, ApprovedLessonFileController, TeacherLessonSubmissionsController } from './lesson-submissions.controller';
+import { LessonSubmissionsService } from './lesson-submissions.service';
 
 @Module({
   imports: [TypeOrmModule.forFeature([StudentProfile, CourseModule, Lesson, LessonVersion, LessonCompletion]), AuthModule],
-  controllers: [LessonsController, CurriculumAdminController, ChallengesController],
-  providers: [LearningService],
+  controllers: [LessonsController, CurriculumAdminController, ChallengesController, TeacherLessonSubmissionsController, AdminLessonSubmissionsController, ApprovedLessonFileController],
+  providers: [LearningService, LessonSubmissionsService],
 })
 export class LearningModule {}

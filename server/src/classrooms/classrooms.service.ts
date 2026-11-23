@@ -68,7 +68,7 @@ export class ClassroomsService {
     this.requireStudentRole(student);
     await this.requireStudentProfile(student.id);
     const [memberships, requests] = await Promise.all([
-      this.db.query(`SELECT classroom.id, classroom.name, teacher.display_name AS teacherName,
+      this.db.query(`SELECT classroom.id, classroom.name, teacher.id AS teacherId, teacher.display_name AS teacherName,
         membership.id AS membershipId, membership.joined_at AS joinedAt
         FROM ClassroomMemberships membership INNER JOIN Classrooms classroom ON classroom.id = membership.classroom_id
         INNER JOIN UserAccounts teacher ON teacher.id = classroom.teacher_user_id

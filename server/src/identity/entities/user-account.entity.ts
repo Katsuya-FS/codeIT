@@ -8,6 +8,7 @@ export class UserAccount {
   @Column({ type: 'varchar', length: 254, unique: true }) email!: string;
   @Column({ name: 'password_hash', type: 'varchar', length: 255, select: false }) passwordHash!: string;
   @Column({ name: 'display_name', type: 'varchar', length: 80 }) displayName!: string;
+  @Column({ type: 'varchar', length: 500, default: '' }) bio!: string;
   @Column({ name: 'role_name', type: 'varchar', length: 32 }) roleName!: string;
   @ManyToOne(() => Role, (role) => role.users, { nullable: false })
   @JoinColumn({ name: 'role_name', referencedColumnName: 'name' }) role!: Role;

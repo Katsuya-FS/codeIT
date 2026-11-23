@@ -46,7 +46,12 @@ export class LearningService {
     if (!lesson) throw new NotFoundException('Lesson not found.');
     const version = this.latestPublished(lesson.versions, true);
     if (!version) throw new NotFoundException('Lesson not found.');
-    return { id: lesson.id, title: lesson.title, module: { id: lesson.module.id, title: lesson.module.title }, version };
+    const [attachment] = await this.dataSource.query(`SELECT original_file_name AS fileName FROM \`TeacherLessonSubmissions\`
+      WHERE published_lesson_id = ? AND status = 'approved' LIMIT 1`, [lesson.id]);
+    return {
+      id: lesson.id, title: lesson.title, module: { id: lesson.module.id, title: lesson.module.title }, version,
+      attachment: attachment ? { fileName: attachment.fileName, url: `/lessons/${lesson.id}/file` } : null,
+    };
   }
 
   async completeLesson(userId: string, lessonId: string, versionId: string) {
@@ -81,10 +86,15 @@ export class LearningService {
     const [points] = await this.dataSource.query('SELECT COALESCE(SUM(points_delta),0) AS total FROM `PointLedgerEntries` WHERE student_user_id = ?', [userId]);
     const challenges = await this.dataSource.query('SELECT challenge.id, challenge.title, completion.completed_at AS completedAt FROM `StudentChallengeCompletions` completion INNER JOIN `CodingChallenges` challenge ON challenge.id = completion.challenge_id WHERE completion.student_user_id = ? ORDER BY completion.completed_at DESC', [userId]);
     const total = Number(lessonStats?.total ?? 0);
+    const totalPoints = Number(points?.total ?? 0);
+    const level = Math.floor(totalPoints / 100) + 1;
+    const currentLevelExp = totalPoints % 100;
     return {
       completedLessons: rows.map((row) => ({ lessonId: row.lessonVersion.lesson.id, lessonTitle: row.lessonVersion.lesson.title, moduleTitle: row.lessonVersion.lesson.module.title, version: row.lessonVersion.versionNumber, completedAt: row.completedAt })),
       completedChallenges: challenges,
-      total, completedChallengeCount: Number(challengeStats?.total ?? 0), totalPoints: Number(points?.total ?? 0),
+      total, completedChallengeCount: Number(challengeStats?.total ?? 0), totalPoints,
+      level, currentLevelExp, nextLevelExp: 100, expToNextLevel: 100 - currentLevelExp,
+      levelProgressPercent: currentLevelExp,
     };
   }
 

@@ -60,6 +60,10 @@ class Parser {
     if (this.is('return')) { this.take('return'); if (!this.is(';')) this.expression(); this.take(';'); return { type: 'empty' }; }
     if (this.is('System') && this.peek(1) === '.' && this.peek(2) === 'out' && this.peek(3) === '.') return this.printStatement();
     if (this.is('Scanner')) return this.scannerDeclaration();
+    if (/^[A-Za-z_$][\w$]*$/.test(this.peek() ?? '') && this.peek(1) === '.' && this.peek(2) === 'close' && this.peek(3) === '(' && this.peek(4) === ')' && this.peek(5) === ';') {
+      const name = this.take(); this.take('.'); this.take('close'); this.take('('); this.take(')'); this.take(';');
+      return { type: 'closeScanner', name };
+    }
     return this.simpleStatement(';');
   }
   scannerDeclaration() {
@@ -115,6 +119,12 @@ class Parser {
   primary() {
     const token = this.take();
     if (token === '(') { const value = this.expression(); this.take(')'); return value; }
+    if (token === 'new') {
+      const className = this.take();
+      if (className !== 'StringBuilder') throw new Error(`The class ${className} is outside the supported Java subset.`);
+      this.take('('); const value = this.is(')') ? null : this.expression(); this.take(')');
+      return { type: 'newStringBuilder', value };
+    }
     if (token === 'true' || token === 'false') return { type: 'literal', value: token === 'true' };
     if (/^\d+(?:\.\d+)?$/.test(token)) return { type: 'literal', value: Number(token) };
     if (token.startsWith('"')) return { type: 'literal', value: JSON.parse(token) };
@@ -124,37 +134,44 @@ class Parser {
   }
 }
 
-function runProgram(statements, input) {
-  const variables = new Map(); const stdin = input.match(/\S+/g) ?? []; let inputIndex = 0;
-  let output = ''; let steps = 0;
+function* runProgram(statements) {
+  const variables = new Map(); let output = ''; let steps = 0;
   const tick = () => { if (++steps > 150_000) throw new Error('The program exceeded the instruction limit.'); };
-  const readInput = (method) => {
-    const token = stdin[inputIndex++];
-    if (token === undefined) throw new Error('The program requested more input than provided.');
-    if (method === 'nextInt') { if (!/^[+-]?\d+$/.test(token)) throw new Error('Expected a whole number in standard input.'); return Number.parseInt(token, 10); }
-    return token;
-  };
-  const evaluate = (node) => {
+  const evaluate = function* (node) {
     tick();
     if (node.type === 'literal') return node.value;
+    if (node.type === 'newStringBuilder') return { kind: 'stringBuilder', value: node.value ? String(yield* evaluate(node.value)) : '' };
     if (node.type === 'variable') {
       if (!variables.has(node.name)) throw new Error(`Variable "${node.name}" is not defined.`);
       return variables.get(node.name);
     }
-    if (node.type === 'unary') { const value = evaluate(node.value); return node.op === '!' ? !value : node.op === '-' ? -Number(value) : Number(value); }
+    if (node.type === 'unary') { const value = yield* evaluate(node.value); return node.op === '!' ? !value : node.op === '-' ? -Number(value) : Number(value); }
     if (node.type === 'memberCall') {
-      const target = evaluate(node.target);
-      if (target?.kind === 'scanner' && (node.method === 'nextInt' || node.method === 'next')) return readInput(node.method);
+      const target = yield* evaluate(node.target);
+      if (target?.kind === 'scanner' && (node.method === 'nextInt' || node.method === 'next' || node.method === 'nextLine')) {
+        if (target.closed) throw new Error('This Scanner is closed.');
+        const token = yield { type: 'input', method: node.method };
+        if (typeof token !== 'string' || (node.method !== 'nextLine' && !token.length)) throw new Error('The program requested more input than provided.');
+        if (node.method === 'nextInt') { if (!/^[+-]?\d+$/.test(token)) throw new Error('Expected a whole number in program input.'); return Number.parseInt(token, 10); }
+        return token;
+      }
+      if (target?.kind === 'stringBuilder') {
+        if (node.method === 'reverse' && node.args.length === 0) { target.value = [...target.value].reverse().join(''); return target; }
+        if (node.method === 'toString' && node.args.length === 0) return target.value;
+        if (node.method === 'append' && node.args.length === 1) { target.value += String(yield* evaluate(node.args[0])); return target; }
+        if (node.method === 'length' && node.args.length === 0) return target.value.length;
+        throw new Error(`The StringBuilder method ${node.method}() is outside the supported Java subset.`);
+      }
       if (node.method === 'length' && node.args.length === 0 && typeof target === 'string') return target.length;
       if (node.method === 'charAt' && node.args.length === 1 && typeof target === 'string') {
-        const index = Number(evaluate(node.args[0])); if (!Number.isInteger(index) || index < 0 || index >= target.length) throw new Error('String index is out of range.'); return target[index];
+        const index = Number(yield* evaluate(node.args[0])); if (!Number.isInteger(index) || index < 0 || index >= target.length) throw new Error('String index is out of range.'); return target[index];
       }
       throw new Error(`The method ${node.method}() is outside the supported Java subset.`);
     }
-    const left = evaluate(node.left);
+    const left = yield* evaluate(node.left);
     if (node.op === '&&' && !left) return false;
     if (node.op === '||' && left) return true;
-    const right = evaluate(node.right);
+    const right = yield* evaluate(node.right);
     switch (node.op) {
       case '+': return typeof left === 'string' || typeof right === 'string' ? String(left) + String(right) : Number(left) + Number(right);
       case '-': return Number(left) - Number(right);
@@ -172,34 +189,64 @@ function runProgram(statements, input) {
       default: throw new Error('Unsupported operator.');
     }
   };
-  const execute = (node) => {
+  const execute = function* (node) {
     tick();
     switch (node.type) {
       case 'empty': break;
-      case 'block': for (const child of node.body) execute(child); break;
+      case 'block': for (const child of node.body) yield* execute(child); break;
       case 'declareScanner': variables.set(node.name, { kind: 'scanner' }); break;
-      case 'declare': variables.set(node.name, evaluate(node.value)); break;
+      case 'closeScanner': { const scanner = variables.get(node.name); if (scanner?.kind !== 'scanner') throw new Error(`Variable "${node.name}" is not a Scanner.`); scanner.closed = true; break; }
+      case 'declare': variables.set(node.name, yield* evaluate(node.value)); break;
       case 'assign': {
         if (!variables.has(node.name)) throw new Error(`Variable "${node.name}" is not defined.`);
-        const old = variables.get(node.name); const value = evaluate(node.value);
+        const old = variables.get(node.name); const value = yield* evaluate(node.value);
         variables.set(node.name, node.op === '=' ? value : node.op === '++' ? Number(old) + 1 : node.op === '--' ? Number(old) - 1 : node.op === '+=' ? (typeof old === 'string' ? old + String(value) : Number(old) + Number(value)) : node.op === '-=' ? Number(old) - Number(value) : node.op === '*=' ? Number(old) * Number(value) : Number(old) / Number(value)); break;
       }
-      case 'print': if (node.value) output += String(evaluate(node.value)); if (node.newline) output += '\n'; if (output.length > 20_000) throw new Error('Program output exceeded 20,000 characters.'); break;
-      case 'if': execute(evaluate(node.test) ? node.yes : node.no ?? { type: 'empty' }); break;
-      case 'while': { let loops = 0; while (evaluate(node.test)) { execute(node.body); if (++loops > 10_000) throw new Error('Loop exceeded 10,000 iterations.'); } break; }
-      case 'for': { if (node.init) execute(node.init); let loops = 0; while (evaluate(node.test)) { execute(node.body); if (node.update) execute(node.update); if (++loops > 10_000) throw new Error('Loop exceeded 10,000 iterations.'); } break; }
+      case 'print': { let text = node.value ? String(yield* evaluate(node.value)) : ''; if (node.newline) text += '\n'; output += text; if (output.length > 20_000) throw new Error('Program output exceeded 20,000 characters.'); if (text) yield { type: 'output', text }; break; }
+      case 'if': yield* execute((yield* evaluate(node.test)) ? node.yes : node.no ?? { type: 'empty' }); break;
+      case 'while': { let loops = 0; while (yield* evaluate(node.test)) { yield* execute(node.body); if (++loops > 10_000) throw new Error('Loop exceeded 10,000 iterations.'); } break; }
+      case 'for': { if (node.init) yield* execute(node.init); let loops = 0; while (yield* evaluate(node.test)) { yield* execute(node.body); if (node.update) yield* execute(node.update); if (++loops > 10_000) throw new Error('Loop exceeded 10,000 iterations.'); } break; }
       default: throw new Error('Unsupported Java statement.');
     }
   };
-  for (const statement of statements) execute(statement);
+  for (const statement of statements) yield* execute(statement);
   return output;
 }
 
-export function interpretJavaSubset(code, input = '') {
+function validateCode(code) {
   if (typeof code !== 'string' || code.length > 50_000) throw new Error('Source code must be under 50,000 characters.');
-  if (typeof input !== 'string' || input.length > 10_000) throw new Error('Standard input must be under 10,000 characters.');
-  return runProgram(new Parser(tokenize(code)).mainBody(), input);
+  return new Parser(tokenize(code)).mainBody();
 }
+
+export function interpretJavaSubset(code, input = '') {
+  if (typeof input !== 'string' || input.length > 10_000) throw new Error('Standard input must be under 10,000 characters.');
+  let inputIndex = 0; let output = '';
+  const readToken = () => {
+    const tokenMatcher = /\S+/g; tokenMatcher.lastIndex = inputIndex; const match = tokenMatcher.exec(input);
+    if (!match) throw new Error('The program requested more input than provided.');
+    inputIndex = tokenMatcher.lastIndex; return match[0];
+  };
+  const readLine = () => {
+    if (inputIndex >= input.length) throw new Error('The program requested more input than provided.');
+    const end = input.indexOf('\n', inputIndex);
+    if (end < 0) { const line = input.slice(inputIndex).replace(/\r$/, ''); inputIndex = input.length; return line; }
+    const line = input.slice(inputIndex, end).replace(/\r$/, ''); inputIndex = end + 1; return line;
+  };
+  const program = runProgram(validateCode(code)); let step = program.next();
+  while (!step.done) {
+    if (step.value.type === 'output') output += step.value.text;
+    else {
+      const token = step.value.method === 'nextLine' ? readLine() : readToken();
+      if (step.value.method === 'nextInt' && !/^[+-]?\d+$/.test(token)) throw new Error('Expected a whole number in program input.');
+      step = program.next(token); continue;
+    }
+    step = program.next();
+  }
+  return output;
+}
+
+export function createInteractiveProgram(code) { return runProgram(validateCode(code)); }
+
 
 export function evaluateJavaSubmission(code, customInput, cases) {
   if (!Array.isArray(cases) || cases.length < 1 || cases.length > 50) throw new Error('The challenge test set is invalid.');
